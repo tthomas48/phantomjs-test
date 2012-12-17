@@ -1,0 +1,13 @@
+{
+    "name": "buyplaytix/phantomjs-test",
+    "version": "1.0",
+    "description": "Allows PHPUnit to test using PhantomJS.",
+    "type": "library",
+    "license": "Apache-2.0",
+    "require": {
+      "php": ">=5.3.2"
+    },
+    "autoload": {
+      "psr-0": {"PhantomJS": "./"}
+    }
+}
