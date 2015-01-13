@@ -6,8 +6,6 @@ class Driver
 
     private $tests;
 
-    private $debug;
-
     private $testcase;
 
     public function __construct($testcase)
@@ -15,27 +13,25 @@ class Driver
         $this->testcase = $testcase;
         $this->reset();
     }
-    
+
     public function reset()
     {
         $this->tests = [];
-        $this->debug = [];
     }
 
-    public function assertTrue($name, $condition)
+    public function assertTrue($name, $condition, $message = "")
     {
-        $this->tests[] = new Assert($name, $condition);
+        $this->tests[] = new AssertTrue($name, $condition, $message);
     }
 
-    public function assertEquals($name, $value, $condition)
+    public function assertEquals($name, $value, $condition, $message = "")
     {
-        $this->debug[] = "\"'\" + " . json_encode($name) . " + \"':'\" + " . $condition . " + \"'\"";
-        $this->tests[] = new Assert($name, "" . json_encode($value) . " == $condition");
+        $this->tests[] = new AssertEquals($name, $condition, $value, $message);
     }
 
-    public function exec($name, $exec)
+    public function exec($name, $exec, $message = "")
     {
-        $this->tests[] = new Exec($name, $exec);
+        $this->tests[] = new AssertExec($name, $exec, $message);
     }
 
     public function test($page_content)
@@ -48,64 +44,35 @@ class Driver
             try {
             if(status == 'success') {
                 var ua = page.evaluate(function () {
-                    var tests = [];";
+                    var tests = {";
+        
+        $harvested = [];
         foreach ($this->tests as $test) {
-            $output .= $test->__toString();
+            $harvested[] = $test->getHarvester();
         }
-        $output .= "return tests;});";
-        $output .= "var debug = page.evaluate(function () { var output = ''; ";
-            foreach ($this->debug as $debug) {
-                $output .= "output += 'DEBUG: ' + " . $debug . ";\n";
-            }
-        $output .= "return output; });";
-        $output .= "console.log(debug);";
-        $output .= "
-                for(var i = 0, il = ua.length; i < il; i++) {
-                    var result = ua[i];
-                    console.log(result.name + ' [' + (result.pass ? 'OK' : 'FAIL') + ']');
-                }";
+        $output .= implode(",", $harvested);
+        $output .= "};\nreturn tests;});";
+        $output .= "console.log(JSON.stringify(ua));";
         $output .= "
             } else {
-                console.log('all [FAIL]');
+                console.log({error: 'page returned ' + status + '.'});
             }
             } catch(e) {
-                console.log(e + ' [FAIL]');
+            console.log({error: e});
             }
             phantom.exit();
         };";
         $output_file = tempnam("/tmp/", "pjs");
         file_put_contents($output_file, $output);
         $stdout = shell_exec("phantomjs " . $output_file);
-        // unlink($output_file);
+        $results = json_decode($stdout);
         
-        $lines = explode("\n", $stdout);
-        foreach ($lines as $line) {
-            if (empty($line)) {
-                continue;
-            }
-            
-            if (preg_match("/DEBUG:(.*)/", $line, $matches)) {
-                print $matches[1] . "\n";
-                continue;
-            }
-            
-            $found_key = false;
-            for ($i = 0; $i < count($this->tests); $i ++) {
-                $test = $this->tests[$i];
-                if (preg_match('/(.*) \[((?:OK)|(?:FAIL))\]/', $line, $matches)) {
-                    if ($test->get_name() == $matches[1]) {
-                        $test->set_success($matches[2] == "OK");
-                        $this->tests[$i] = $test;
-                        $found_key = true;
-                    }
-                }
-            }
-            if (! $found_key) {
-                $this->testcase->fail($line);
-            }
+        for ($i = 0; $i < count($this->tests); $i ++) {
+            $test = $this->tests[$i];
+            $name = $test->getName();
+            $value = $results->$name;
+            $test->evaluate($this->testcase, $value);
         }
-        foreach ($this->tests as $test) {
-            $this->testcase->assertTrue($test->is_success(), $test->get_name());
-        }
+        unlink($output_file);
     }
 }
