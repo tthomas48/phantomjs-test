@@ -15,8 +15,9 @@ class AssertExec extends AssertTrue {
         $output .= $this->command;
         $output .= "} catch(e) {\n";
         $output .= "exception = e;\n";
-        $output .= "}\n return exception === undefined; }.apply()";
-        return json_encode($this->getName()) . ":" . $output;
+        $output .= "}\n return typeof(exception) === 'undefined'; }.call()";
+        $encoded = json_encode($this->getName()) . ":" . $output;
+        return $encoded;
   }
     
 }
