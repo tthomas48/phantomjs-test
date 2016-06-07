@@ -24,7 +24,7 @@ class Driver
         $this->tests[] = new AssertTrue($name, $condition, $message);
     }
 
-    public function assertEquals($name, $value, $condition, $message = "")
+    public function assertEquals($name, $condition, $value, $message = "")
     {
         $this->tests[] = new AssertEquals($name, $condition, $value, $message);
     }
